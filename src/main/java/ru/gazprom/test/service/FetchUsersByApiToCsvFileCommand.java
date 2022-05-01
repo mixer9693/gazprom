@@ -15,7 +15,7 @@ import java.util.logging.Logger;
 @RequiredArgsConstructor
 public class FetchUsersByApiToCsvFileCommand implements Command {
     private static final Logger LOGGER = Logger.getLogger(FetchUsersByApiToCsvFileCommand.class.getName());
-    private final ApiDataProvider apiDataProvider;
+    private final DataProvider apiDataProvider;
     private final InputParamManager inputParamManager;
     @Qualifier(value = "csvWriter")
     private final DataWriter dataWriter;
