@@ -24,7 +24,7 @@ public class CsvDataWriter implements DataWriter {
 
     @Override
     public void write(List<User> users, String filename) throws Exception {
-        LOGGER.log(Level.FINE, "Writing {0} users to {1}", new Object[]{users.size(), filename});
+        LOGGER.log(Level.FINE, "Try to write {0} users to {1}", new Object[]{users.size(), filename});
 
         try(FileWriter writer = new FileWriter(filename)){
             StatefulBeanToCsv<UserCsvDto> beanToCsv =
