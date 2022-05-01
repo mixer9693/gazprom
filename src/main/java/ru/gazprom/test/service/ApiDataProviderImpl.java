@@ -1,5 +1,8 @@
 package ru.gazprom.test.service;
 
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -9,10 +12,14 @@ import ru.gazprom.test.model.User;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -29,40 +36,76 @@ public class ApiDataProviderImpl implements ApiDataProvider {
     private final ExecutorService executor;
 
     public List<User> fetchUserList(int amount) throws Exception {
-        if (amount <= 0){
-            throw new IllegalArgumentException();
-        }
-        int wholeIters = amount / batchSize;
-        int remainder = amount % batchSize;
+        Decomposer decomposer = Decomposer.decompose(amount, batchSize);
 
-        List<User> userList = new ArrayList<>();
-        List<Future<ResponseBody>> tasks = new ArrayList<>();
+        LOGGER.log(Level.FINE, "Try to create {0} tasks to fetch {1}",
+                new Object[]{decomposer.getIterations(), amount});
+        List<Callable<ResponseBody>> tasks = createTasks(decomposer.getIterations());
 
-        final String url = String.format("%s?results=%s", apiUrl, batchSize);
-        for (int i = 0; i < wholeIters; i++){
-            LOGGER.log(Level.FINE, "Try to submit task {0} to fetch data from {1}",
-                    new Object[]{(i+1), url});
-            Future<ResponseBody> f = executor.submit(() ->
-                    restTemplate.getForObject(url, ResponseBody.class));
-            tasks.add(f);
-        }
+        LOGGER.log(Level.FINE, "Try to create remaining task");
+        createRemainderTask(decomposer.getRemainder())
+                .ifPresent(tasks::add);
 
-        if (remainder > 0){
-            LOGGER.log(Level.FINE, "Try to submit remaining task to fetch data from {0}", url);
-            final String urlR = String.format("%s?results=%s", apiUrl, remainder);
-            Future<ResponseBody> f = executor.submit(() ->
-                    restTemplate.getForObject(urlR, ResponseBody.class));
-            tasks.add(f);
-        }
+        LOGGER.log(Level.FINE, "Try to submit {0} tasks and get results", tasks.size());
+        List<ResponseBody> results = submitAndCollect(tasks);
 
-        LOGGER.log(Level.FINE, "Try to obtain and collect results from {0} tasks", tasks.size());
-        for (Future<ResponseBody> future: tasks){
-            userList.addAll(future.get().getResults());
-            LOGGER.log(Level.FINE, "Task completed");
-        }
-
-        return userList;
+        return results.stream()
+                .flatMap(e -> e.getResults().stream())
+                .collect(Collectors.toList());
     }
 
+    public List<Callable<ResponseBody>> createTasks(int number){
+        List<Callable<ResponseBody>> tasks = new ArrayList<>();
+        final String url = String.format("%s?results=%s", apiUrl, batchSize);
+
+        for (int i = 0; i < number; i++){
+            LOGGER.log(Level.FINE, "Try to create a task {0} to fetch {1} from {2}",
+                    new Object[]{(i+1), batchSize, url});
+            tasks.add(() -> restTemplate.getForObject(url, ResponseBody.class));
+        }
+
+        return tasks;
+    }
+
+    public Optional<Callable<ResponseBody>> createRemainderTask(int remainder){
+        if (remainder > 0){
+            final String urlR = String.format("%s?results=%s", apiUrl, remainder);
+            LOGGER.log(Level.FINE, "Try to create a task to fetch remaining {0} from {1}",
+                    new Object[]{remainder, urlR});
+            return Optional.of(() -> restTemplate.getForObject(urlR, ResponseBody.class));
+        }
+
+        return Optional.empty();
+    }
+
+    public List<ResponseBody> submitAndCollect(List<Callable<ResponseBody>> tasks) throws ExecutionException, InterruptedException {
+        List<Future<ResponseBody>> futureList = new ArrayList<>();
+        for (Callable<ResponseBody> task: tasks){
+            futureList.add(executor.submit(task));
+        }
+        List<ResponseBody> results = new ArrayList<>();
+        for (Future<ResponseBody> future: futureList){
+            results.add(future.get());
+        }
+
+        return results;
+    }
+
+    @Getter
+    @AllArgsConstructor(access = AccessLevel.PRIVATE)
+    static class Decomposer {
+        private int iterations;
+        private int remainder;
+
+        public static Decomposer decompose(int amount, int batchSize){
+            if (amount <= 0){
+                throw new IllegalArgumentException();
+            }
+            int iterations = amount / batchSize;
+            int remainder = amount % batchSize;
+
+            return new Decomposer(iterations, remainder);
+        }
+    }
 
 }

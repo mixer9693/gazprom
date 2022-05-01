@@ -25,10 +25,10 @@ public class FetchUsersByApiToCsvFileCommand implements Command {
             InputParams inputParams = inputParamManager.parse(args);
             inputParamManager.validate(inputParams);
 
-            LOGGER.log(Level.INFO, "Fetching users via API ...");
+            LOGGER.log(Level.INFO, "Fetching users via API...");
             List<User> userList = apiDataProvider.fetchUserList(inputParams.getAmount());
 
-            LOGGER.log(Level.INFO, "Writing to file ...");
+            LOGGER.log(Level.INFO, "Writing to file...");
             dataWriter.write(userList, inputParams.getFilename());
 
             LOGGER.log(Level.INFO, "Success. {0} users written to {1}",
