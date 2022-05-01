@@ -18,7 +18,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 class ApiDataProviderImplTest {
-    private ApiDataProviderImpl apiDataProvider;
+    private ApiDataProvider apiDataProvider;
     private ExecutorService executor;
     private static final String apiUrl = "https://api.randomuser.me/";
     private static final Integer batchSize = 25;
@@ -30,7 +30,7 @@ class ApiDataProviderImplTest {
         when(future.get()).thenReturn(mock(ResponseBody.class));
         when(executor.submit(any(Callable.class))).thenReturn(future);
 
-        apiDataProvider = new ApiDataProviderImpl(mock(RestTemplate.class), executor);
+        apiDataProvider = new ApiDataProvider(mock(RestTemplate.class), executor);
 
         Field apiUrlF = apiDataProvider.getClass().getDeclaredField("apiUrl");
         apiUrlF.setAccessible(true);
@@ -43,33 +43,33 @@ class ApiDataProviderImplTest {
 
     @Test
     void decompose(){
-        assertThrows(IllegalArgumentException.class, () -> ApiDataProviderImpl.Decomposer.decompose(0, batchSize));
-        assertThrows(IllegalArgumentException.class, () -> ApiDataProviderImpl.Decomposer.decompose(-1, batchSize));
+        assertThrows(IllegalArgumentException.class, () -> ApiDataProvider.Decomposer.decompose(0, batchSize));
+        assertThrows(IllegalArgumentException.class, () -> ApiDataProvider.Decomposer.decompose(-1, batchSize));
 
-        ApiDataProviderImpl.Decomposer dcp = ApiDataProviderImpl.Decomposer.decompose(1, batchSize);
+        ApiDataProvider.Decomposer dcp = ApiDataProvider.Decomposer.decompose(1, batchSize);
         assertEquals(0, dcp.getIterations());
         assertEquals(1, dcp.getRemainder());
 
-        ApiDataProviderImpl.Decomposer dcp2 = ApiDataProviderImpl.Decomposer.decompose(10, batchSize);
+        ApiDataProvider.Decomposer dcp2 = ApiDataProvider.Decomposer.decompose(10, batchSize);
         assertEquals(0, dcp2.getIterations());
         assertEquals(10, dcp2.getRemainder());
 
-        ApiDataProviderImpl.Decomposer dcp3 = ApiDataProviderImpl.Decomposer.decompose(25, batchSize);
+        ApiDataProvider.Decomposer dcp3 = ApiDataProvider.Decomposer.decompose(25, batchSize);
         assertEquals(1, dcp3.getIterations());
         assertEquals(0, dcp3.getRemainder());
 
-        ApiDataProviderImpl.Decomposer dcp4 = ApiDataProviderImpl.Decomposer.decompose(26, batchSize);
+        ApiDataProvider.Decomposer dcp4 = ApiDataProvider.Decomposer.decompose(26, batchSize);
         assertEquals(1, dcp4.getIterations());
         assertEquals(1, dcp4.getRemainder());
 
-        ApiDataProviderImpl.Decomposer dcp5 = ApiDataProviderImpl.Decomposer.decompose(55, batchSize);
+        ApiDataProvider.Decomposer dcp5 = ApiDataProvider.Decomposer.decompose(55, batchSize);
         assertEquals(2, dcp5.getIterations());
         assertEquals(5, dcp5.getRemainder());
     }
 
     @Test
     void fetchUserList() throws Exception {
-        ApiDataProviderImpl ap = spy(apiDataProvider);
+        ApiDataProvider ap = spy(apiDataProvider);
         ap.fetchUserList(55);
 
         verify(ap, times(1)).createTasks(2);
